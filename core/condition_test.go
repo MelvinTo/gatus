@@ -23,6 +23,7 @@ func TestCondition_Validate(t *testing.T) {
 		{condition: "[STATUS] == [BODY].status", expectedErr: nil},
 		{condition: "[CONNECTED] == true", expectedErr: nil},
 		{condition: "[RESPONSE_TIME] < 500", expectedErr: nil},
+		{condition: "[NOW] < 500", expectedErr: nil},
 		{condition: "[IP] == 127.0.0.1", expectedErr: nil},
 		{condition: "[BODY] == 1", expectedErr: nil},
 		{condition: "[BODY].test == wat", expectedErr: nil},
@@ -536,6 +537,13 @@ func TestCondition_evaluate(t *testing.T) {
 			Result:          &Result{HTTPStatus: 200},
 			ExpectedSuccess: false,
 			ExpectedOutput:  "[STATUS] (200) == pat(4*)",
+		},
+		{
+			Name:            "expire-timestamp",
+			Condition:       Condition("336h < since_now([BODY].expire)"),
+			Result:          &Result{Body: []byte("{\"expire\": 1878753923}")},
+			ExpectedSuccess: true,
+			ExpectedOutput:  "336h < since_now([BODY].expire)",
 		},
 		// any
 		{

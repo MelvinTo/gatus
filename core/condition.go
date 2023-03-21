@@ -69,6 +69,11 @@ const (
 	// Usage: [IP] == pat(192.168.*.*)
 	PatternFunctionPrefix = "pat("
 
+	// SinceNowFunctionPrefix is the prefix for the since_now function
+	//
+	// Usage: since_now([BODY].expire) < 3600
+	SinceNowFunctionPrefix = "since_now("
+
 	// AnyFunctionPrefix is the prefix for the any function
 	//
 	// Usage: [IP] == any(1.1.1.1, 1.0.0.1)
@@ -258,6 +263,7 @@ func sanitizeAndResolve(elements []string, result *Result) ([]string, []string) 
 			if strings.Contains(element, BodyPlaceholder) {
 				checkingForLength := false
 				checkingForExistence := false
+				checkingForSinceNow := false
 				if strings.HasPrefix(element, LengthFunctionPrefix) && strings.HasSuffix(element, FunctionSuffix) {
 					checkingForLength = true
 					element = strings.TrimSuffix(strings.TrimPrefix(element, LengthFunctionPrefix), FunctionSuffix)
@@ -265,6 +271,10 @@ func sanitizeAndResolve(elements []string, result *Result) ([]string, []string) 
 				if strings.HasPrefix(element, HasFunctionPrefix) && strings.HasSuffix(element, FunctionSuffix) {
 					checkingForExistence = true
 					element = strings.TrimSuffix(strings.TrimPrefix(element, HasFunctionPrefix), FunctionSuffix)
+				}
+				if strings.HasPrefix(element, SinceNowFunctionPrefix) && strings.HasSuffix(element, FunctionSuffix) {
+					checkingForSinceNow = true
+					element = strings.TrimSuffix(strings.TrimPrefix(element, SinceNowFunctionPrefix), FunctionSuffix)
 				}
 				resolvedElement, resolvedElementLength, err := jsonpath.Eval(strings.TrimPrefix(strings.TrimPrefix(element, BodyPlaceholder), "."), result.Body)
 				if checkingForExistence {
@@ -286,6 +296,13 @@ func sanitizeAndResolve(elements []string, result *Result) ([]string, []string) 
 					} else {
 						if checkingForLength {
 							element = strconv.Itoa(resolvedElementLength)
+						} else if checkingForSinceNow {
+							ts, err := strconv.ParseFloat(resolvedElement, 64)
+							if err != nil {
+								element = resolvedElement
+							} else {
+								element = strconv.Itoa(int(int64(ts)-time.Now().Unix()) * 1000)
+							}
 						} else {
 							element = resolvedElement
 						}
