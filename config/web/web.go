@@ -1,6 +1,8 @@
 package web
 
 import (
+	"crypto/tls"
+	"errors"
 	"fmt"
 	"math"
 )
@@ -21,6 +23,17 @@ type Config struct {
 
 	// Port to listen on (default to 8080 specified by DefaultPort)
 	Port int `yaml:"port"`
+
+	// TLS configuration (optional)
+	TLS *TLSConfig `yaml:"tls,omitempty"`
+}
+
+type TLSConfig struct {
+	// CertificateFile is the public certificate for TLS in PEM format.
+	CertificateFile string `yaml:"certificate-file,omitempty"`
+
+	// PrivateKeyFile is the private key file for TLS in PEM format.
+	PrivateKeyFile string `yaml:"private-key-file,omitempty"`
 }
 
 // GetDefaultConfig returns a Config struct with the default values
@@ -40,10 +53,31 @@ func (web *Config) ValidateAndSetDefaults() error {
 	} else if web.Port < 0 || web.Port > math.MaxUint16 {
 		return fmt.Errorf("invalid port: value should be between %d and %d", 0, math.MaxUint16)
 	}
+	// Try to load the TLS certificates
+	if web.TLS != nil {
+		if err := web.TLS.isValid(); err != nil {
+			return fmt.Errorf("invalid tls config: %w", err)
+		}
+	}
 	return nil
+}
+
+func (web *Config) HasTLS() bool {
+	return web.TLS != nil && len(web.TLS.CertificateFile) > 0 && len(web.TLS.PrivateKeyFile) > 0
 }
 
 // SocketAddress returns the combination of the Address and the Port
 func (web *Config) SocketAddress() string {
 	return fmt.Sprintf("%s:%d", web.Address, web.Port)
+}
+
+func (t *TLSConfig) isValid() error {
+	if len(t.CertificateFile) > 0 && len(t.PrivateKeyFile) > 0 {
+		_, err := tls.LoadX509KeyPair(t.CertificateFile, t.PrivateKeyFile)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+	return errors.New("certificate-file and private-key-file must be specified")
 }

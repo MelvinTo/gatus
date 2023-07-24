@@ -15,7 +15,7 @@ checks can be paired with alerting via Slack, Teams, PagerDuty, Discord, Twilio 
 I personally deploy it in my Kubernetes cluster and let it monitor the status of my
 core applications: https://status.twin.sh/
 
-_Looking for a hosted solution? Check out [Gatus.io](https://gatus.io)._
+_Looking for a managed solution? Check out [Gatus.io](https://gatus.io)._
 
 <details>
   <summary><b>Quick start</b></summary>
@@ -51,6 +51,7 @@ Have any feedback or questions? [Create a discussion](https://github.com/TwiN/ga
     - [Configuring Discord alerts](#configuring-discord-alerts)
     - [Configuring Email alerts](#configuring-email-alerts)
     - [Configuring GitHub alerts](#configuring-github-alerts)
+    - [Configuring GitLab alerts](#configuring-gitlab-alerts)
     - [Configuring Google Chat alerts](#configuring-google-chat-alerts)
     - [Configuring Matrix alerts](#configuring-matrix-alerts)
     - [Configuring Mattermost alerts](#configuring-mattermost-alerts)
@@ -67,9 +68,11 @@ Have any feedback or questions? [Create a discussion](https://github.com/TwiN/ga
     - [Setting a default alert](#setting-a-default-alert)
   - [Maintenance](#maintenance)
   - [Security](#security)
-    - [Basic](#basic)
+    - [Basic Authentication](#basic-authentication)
     - [OIDC](#oidc)
+  - [TLS Encryption](#tls-encryption)
   - [Metrics](#metrics)
+  - [Connectivity](#connectivity)
   - [Remote instances (EXPERIMENTAL)](#remote-instances-experimental)
 - [Deployment](#deployment)
   - [Docker](#docker)
@@ -92,6 +95,7 @@ Have any feedback or questions? [Create a discussion](https://github.com/TwiN/ga
   - [disable-monitoring-lock](#disable-monitoring-lock)
   - [Reloading configuration on the fly](#reloading-configuration-on-the-fly)
   - [Endpoint groups](#endpoint-groups)
+  - [Exposing Gatus on a custom path](#exposing-gatus-on-a-custom-path)
   - [Exposing Gatus on a custom port](#exposing-gatus-on-a-custom-port)
   - [Keeping your configuration small](#keeping-your-configuration-small)
   - [Badges](#badges)
@@ -228,6 +232,8 @@ If you want to test it locally, see [Docker](#docker).
 | `web`                                           | Web configuration.                                                                                                                          | `{}`                       |
 | `web.address`                                   | Address to listen on.                                                                                                                       | `0.0.0.0`                  |
 | `web.port`                                      | Port to listen on.                                                                                                                          | `8080`                     |
+| `web.tls.certificate-file`                      | Optional public certificate file for TLS in PEM format.                                                                                     | ``                         |
+| `web.tls.private-key-file`                      | Optional private key file for TLS in PEM format.                                                                                            | ``                         |
 | `ui`                                            | UI configuration.                                                                                                                           | `{}`                       |
 | `ui.title`                                      | [Title of the document](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/title).                                                   | `Health Dashboard ǀ Gatus` |
 | `ui.description`                                | Meta description for the page.                                                                                                              | `Gatus is an advanced...`. |
@@ -407,6 +413,7 @@ ignored.
 | `alerting.discord`     | Configuration for alerts of type `discord`. <br />See [Configuring Discord alerts](#configuring-discord-alerts).             | `{}`    |
 | `alerting.email`       | Configuration for alerts of type `email`. <br />See [Configuring Email alerts](#configuring-email-alerts).                   | `{}`    |
 | `alerting.github`      | Configuration for alerts of type `github`. <br />See [Configuring GitHub alerts](#configuring-github-alerts).                | `{}`    |
+| `alerting.gitlab`      | Configuration for alerts of type `gitlab`. <br />See [Configuring GitLab alerts](#configuring-gitlab-alerts).                | `{}`    |
 | `alerting.googlechat`  | Configuration for alerts of type `googlechat`. <br />See [Configuring Google Chat alerts](#configuring-google-chat-alerts).  | `{}`    |
 | `alerting.matrix`      | Configuration for alerts of type `matrix`. <br />See [Configuring Matrix alerts](#configuring-matrix-alerts).                | `{}`    |
 | `alerting.mattermost`  | Configuration for alerts of type `mattermost`. <br />See [Configuring Mattermost alerts](#configuring-mattermost-alerts).    | `{}`    |
@@ -545,6 +552,47 @@ endpoints:
 ```
 
 ![GitHub alert](.github/assets/github-alerts.png)
+
+#### Configuring GitLab alerts
+| Parameter                           | Description                                                                                                | Default       |
+|:------------------------------------|:----------------------------------------------------------------------------------------------------------------|:--------------|
+| `alerting.gitlab`                   | Configuration for alerts of type `gitlab`                                                                       | `{}`          |
+| `alerting.gitlab.webhook-url`       | GitLab alert webhook URL (e.g. `https://gitlab.com/hlidotbe/example/alerts/notify/gatus/xxxxxxxxxxxxxxxx.json`) | Required `""` |
+| `alerting.gitlab.authorization-key` | Personal access token to use for authentication. <br />Must have at least RW on issues and RO on metadata.      | Required `""` |
+| `alerting.gitlab.severity`          | Override default severity (critical), can be one of `critical, high, medium, low, info, unknown`                | `""`          |
+| `alerting.gitlab.monitoring-tool`   | Override the monitoring tool name (gatus)                                                                       | `"gatus"`     |
+| `alerting.gitlab.environment-name`  | Set gitlab environment's name. Required to display alerts on a dashboard.                                       | `""`          |
+| `alerting.gitlab.service`           | Override endpoint displayname                                                                                   | `""` |
+| `alerting.gitlab.default-alert`     | Default alert configuration. <br />See [Setting a default alert](#setting-a-default-alert).                     | N/A           |
+
+The GitLab alerting provider creates an alert prefixed with `alert(gatus):` and suffixed with the endpoint's display
+name for each alert. If `send-on-resolved` is set to `true` on the endpoint alert, the alert will be automatically
+closed when the alert is resolved. See
+https://docs.gitlab.com/ee/operations/incident_management/integrations.html#configuration to configure the endpoint.
+
+```yaml
+alerting:
+  gitlab:
+    webhook-url: "https://gitlab.com/hlidotbe/example/alerts/notify/gatus/xxxxxxxxxxxxxxxx.json"
+    authorization-key: "12345"
+
+endpoints:
+  - name: example
+    url: "https://twin.sh/health"
+    interval: 5m
+    conditions:
+      - "[STATUS] == 200"
+      - "[BODY].status == UP"
+      - "[RESPONSE_TIME] < 75"
+    alerts:
+      - type: gitlab
+        failure-threshold: 2
+        success-threshold: 3
+        send-on-resolved: true
+        description: "Everything's burning AAAAAHHHHHHHHHHHHHHH"
+```
+
+![GitLab alert](.github/assets/gitlab-alerts.png)
 
 
 #### Configuring Google Chat alerts
@@ -685,6 +733,7 @@ endpoints:
 | `alerting.ntfy`               | Configuration for alerts of type `ntfy`                                                    | `{}`              |
 | `alerting.ntfy.topic`         | Topic at which the alert will be sent                                                      | Required `""`     |
 | `alerting.ntfy.url`           | The URL of the target server                                                               | `https://ntfy.sh` |
+| `alerting.ntfy.token`         | [Access token](https://docs.ntfy.sh/publish/#access-tokens) for restricted topics          | `""`              |
 | `alerting.ntfy.priority`      | The priority of the alert                                                                  | `3`               |
 | `alerting.ntfy.default-alert` | Default alert configuration. <br />See [Setting a default alert](#setting-a-default-alert) | N/A               |
 
@@ -697,6 +746,7 @@ alerting:
   ntfy:
     topic: "gatus-test-topic"
     priority: 2
+    token: faketoken
     default-alert:
       failure-threshold: 3
       send-on-resolved: true
@@ -1053,13 +1103,13 @@ As a result, the `[ALERT_TRIGGERED_OR_RESOLVED]` in the body of first example of
 
 
 #### Setting a default alert
-| Parameter                                     | Description                                                                   | Default |
-|:----------------------------------------------|:------------------------------------------------------------------------------|:--------|
-| `alerting.*.default-alert.enabled`            | Whether to enable the alert                                                   | N/A     |
-| `alerting.*.default-alert.failure-threshold`  | Number of failures in a row needed before triggering the alert                | N/A     |
-| `alerting.*.default-alert.success-threshold`  | Number of successes in a row before an ongoing incident is marked as resolved | N/A     |
-| `alerting.*.default-alert.send-on-resolved`   | Whether to send a notification once a triggered alert is marked as resolved   | N/A     |
-| `alerting.*.default-alert.description`        | Description of the alert. Will be included in the alert sent                  | N/A     |
+| Parameter                                    | Description                                                                   | Default |
+|:---------------------------------------------|:------------------------------------------------------------------------------|:--------|
+| `alerting.*.default-alert.enabled`           | Whether to enable the alert                                                   | N/A     |
+| `alerting.*.default-alert.failure-threshold` | Number of failures in a row needed before triggering the alert                | N/A     |
+| `alerting.*.default-alert.success-threshold` | Number of successes in a row before an ongoing incident is marked as resolved | N/A     |
+| `alerting.*.default-alert.send-on-resolved`  | Whether to send a notification once a triggered alert is marked as resolved   | N/A     |
+| `alerting.*.default-alert.description`       | Description of the alert. Will be included in the alert sent                  | N/A     |
 
 > ⚠ You must still specify the `type` of the alert in the endpoint configuration even if you set the default alert of a provider.
 
@@ -1175,14 +1225,14 @@ maintenance:
 
 
 ### Security
-| Parameter                        | Description                  | Default       |
-|:---------------------------------|:-----------------------------|:--------------|
-| `security`                       | Security configuration       | `{}`          |
-| `security.basic`                 | HTTP Basic configuration     | `{}`          |
-| `security.oidc`                  | OpenID Connect configuration | `{}`          |
+| Parameter        | Description                  | Default |
+|:-----------------|:-----------------------------|:--------|
+| `security`       | Security configuration       | `{}`    |
+| `security.basic` | HTTP Basic configuration     | `{}`    |
+| `security.oidc`  | OpenID Connect configuration | `{}`    |
 
 
-#### Basic
+#### Basic Authentication
 | Parameter                               | Description                                                                        | Default       |
 |:----------------------------------------|:-----------------------------------------------------------------------------------|:--------------|
 | `security.basic`                        | HTTP Basic configuration                                                           | `{}`          |
@@ -1226,6 +1276,17 @@ security:
 
 Confused? Read [Securing Gatus with OIDC using Auth0](https://twin.sh/articles/56/securing-gatus-with-oidc-using-auth0).
 
+### TLS Encryption
+Gatus supports basic encryption with TLS. To enable this, certificate files in PEM format have to be provided.
+
+The example below shows an example configuration which makes gatus respond on port 4443 to HTTPS requests:
+```yaml
+web:
+  port: 4443
+  tls:
+    certificate-file: "certificate.crt"
+    private-key-file: "private.key"
+```
 
 ### Metrics
 To enable metrics, you must set `metrics` to `true`. Doing so will expose Prometheus-friendly metrics at the `/metrics`
@@ -1242,6 +1303,28 @@ endpoint on the same port your application is configured to run on (`web.port`).
 See [examples/docker-compose-grafana-prometheus](.examples/docker-compose-grafana-prometheus) for further documentation as well as an example.
 
 
+### Connectivity
+| Parameter                       | Description                                | Default       |
+|:--------------------------------|:-------------------------------------------|:--------------|
+| `connectivity`                  | Connectivity configuration                 | `{}`          |
+| `connectivity.checker`          | Connectivity checker configuration         | Required `{}` |
+| `connectivity.checker.target`   | Host to use for validating connectivity    | Required `""` |
+| `connectivity.checker.interval` | Interval at which to validate connectivity | `1m`          |
+
+While Gatus is used to monitor other services, it is possible for Gatus itself to lose connectivity to the internet.
+In order to prevent Gatus from reporting endpoints as unhealthy when Gatus itself is unhealthy, you may configure 
+Gatus to periodically check for internet connectivity.
+
+All endpoint executions are skipped while the connectivity checker deems connectivity to be down.
+
+```yaml
+connectivity:
+  checker:
+    target: 1.1.1.1:53
+    interval: 60s
+```
+
+
 ### Remote instances (EXPERIMENTAL)
 This feature allows you to retrieve endpoint statuses from a remote Gatus instance.
 
@@ -1253,12 +1336,12 @@ This is an experimental feature. It may be removed or updated in a breaking mann
 there are known issues with this feature. If you'd like to provide some feedback, please write a comment in [#64](https://github.com/TwiN/gatus/issues/64).
 Use at your own risk.
 
-| Parameter                          | Description                                  | Default        |
-|:-----------------------------------|:---------------------------------------------|:---------------|
-| `remote`                           | Remote configuration                         | `{}`           |
-| `remote.instances`                 | List of remote instances                     | Required `[]`  |
-| `remote.instances.endpoint-prefix` | String to prefix all endpoint names with     | `""`           |
-| `remote.instances.url`             | URL from which to retrieve endpoint statuses | Required `""`  |
+| Parameter                          | Description                                  | Default       |
+|:-----------------------------------|:---------------------------------------------|:--------------|
+| `remote`                           | Remote configuration                         | `{}`          |
+| `remote.instances`                 | List of remote instances                     | Required `[]` |
+| `remote.instances.endpoint-prefix` | String to prefix all endpoint names with     | `""`          |
+| `remote.instances.url`             | URL from which to retrieve endpoint statuses | Required `""` |
 
 ```yaml
 remote:
@@ -1386,11 +1469,11 @@ simple health checks used for alerting (PagerDuty/Twilio) to `30s`.
 
 
 ### Default timeouts
-| Endpoint type  | Timeout |
-|:---------------|:--------|
-| HTTP           | 10s     |
-| TCP            | 10s     |
-| ICMP           | 10s     |
+| Endpoint type | Timeout |
+|:--------------|:--------|
+| HTTP          | 10s     |
+| TCP           | 10s     |
+| ICMP          | 10s     |
 
 To modify the timeout, see [Client configuration](#client-configuration).
 
@@ -1463,6 +1546,8 @@ endpoints:
 Only the placeholders `[CONNECTED]`, `[IP]` and `[RESPONSE_TIME]` are supported for endpoints of type ICMP.
 You can specify a domain prefixed by `icmp://`, or an IP address prefixed by `icmp://`.
 
+If you run Gatus on Linux, please read the Linux section on https://github.com/prometheus-community/pro-bing#linux
+if you encounter any problems.
 
 ### Monitoring an endpoint using DNS queries
 Defining a `dns` configuration in an endpoint will automatically mark said endpoint as an endpoint of type DNS:
@@ -1615,6 +1700,12 @@ endpoints:
 The configuration above will result in a dashboard that looks like this:
 
 ![Gatus Endpoint Groups](.github/assets/endpoint-groups.png)
+
+
+### Exposing Gatus on a custom path
+Currently, you can expose the Gatus UI using a fully qualified domain name (FQDN) such as `status.example.org`. However, it does not support path-based routing, which means you cannot expose it through a URL like `example.org/status/`.
+
+For more information, see https://github.com/TwiN/gatus/issues/88.
 
 
 ### Exposing Gatus on a custom port
@@ -1782,4 +1873,8 @@ No such header is required to query the API.
 ## Sponsors
 You can find the full list of sponsors [here](https://github.com/sponsors/TwiN).
 
-[<img src="https://github.com/math280h.png" width="50" />](https://github.com/math280h)
+<!-- _There is currently no sponsors_ -->
+
+[<img src="https://github.com/8ball030.png" width="50" />](https://github.com/8ball030)
+
+<!-- [<img src="https://github.com/$user.png" width="50" />](https://github.com/$user) -->
