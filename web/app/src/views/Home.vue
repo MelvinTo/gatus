@@ -1,14 +1,15 @@
 <template>
   <Loading v-if="!retrievedData" class="h-64 w-64 px-4 my-24"/>
-  <slot v-else>
+  <slot>
     <Endpoints
+        v-show="retrievedData"
         :endpointStatuses="endpointStatuses"
         :showStatusOnHover="true"
         @showTooltip="showTooltip"
         @toggleShowAverageResponseTime="toggleShowAverageResponseTime"
         :showAverageResponseTime="showAverageResponseTime"
     />
-    <Pagination @page="changePage"/>
+    <Pagination v-show="retrievedData" @page="changePage"/>
   </slot>
   <Settings @refreshData="fetchData"/>
 </template>
@@ -48,6 +49,7 @@ export default {
       });
     },
     changePage(page) {
+      this.retrievedData = false; // Show loading only on page change or on initial load
       this.currentPage = page;
       this.fetchData();
     },
@@ -67,6 +69,7 @@ export default {
     }
   },
   created() {
+    this.retrievedData = false; // Show loading only on page change or on initial load
     this.fetchData();
   }
 }

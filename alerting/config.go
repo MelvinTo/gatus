@@ -7,11 +7,14 @@ import (
 
 	"github.com/TwiN/gatus/v5/alerting/alert"
 	"github.com/TwiN/gatus/v5/alerting/provider"
+	"github.com/TwiN/gatus/v5/alerting/provider/awsses"
 	"github.com/TwiN/gatus/v5/alerting/provider/custom"
 	"github.com/TwiN/gatus/v5/alerting/provider/discord"
 	"github.com/TwiN/gatus/v5/alerting/provider/email"
 	"github.com/TwiN/gatus/v5/alerting/provider/github"
+	"github.com/TwiN/gatus/v5/alerting/provider/gitlab"
 	"github.com/TwiN/gatus/v5/alerting/provider/googlechat"
+	"github.com/TwiN/gatus/v5/alerting/provider/gotify"
 	"github.com/TwiN/gatus/v5/alerting/provider/matrix"
 	"github.com/TwiN/gatus/v5/alerting/provider/mattermost"
 	"github.com/TwiN/gatus/v5/alerting/provider/messagebird"
@@ -27,6 +30,9 @@ import (
 
 // Config is the configuration for alerting providers
 type Config struct {
+	// AWSSimpleEmailService is the configuration for the aws-ses alerting provider
+	AWSSimpleEmailService *awsses.AlertProvider `yaml:"aws-ses,omitempty"`
+
 	// Custom is the configuration for the custom alerting provider
 	Custom *custom.AlertProvider `yaml:"custom,omitempty"`
 
@@ -39,8 +45,14 @@ type Config struct {
 	// GitHub is the configuration for the github alerting provider
 	GitHub *github.AlertProvider `yaml:"github,omitempty"`
 
+	// GitLab is the configuration for the gitlab alerting provider
+	GitLab *gitlab.AlertProvider `yaml:"gitlab,omitempty"`
+
 	// GoogleChat is the configuration for the googlechat alerting provider
 	GoogleChat *googlechat.AlertProvider `yaml:"googlechat,omitempty"`
+
+	// Gotify is the configuration for the gotify alerting provider
+	Gotify *gotify.AlertProvider `yaml:"gotify,omitempty"`
 
 	// Matrix is the configuration for the matrix alerting provider
 	Matrix *matrix.AlertProvider `yaml:"matrix,omitempty"`
@@ -81,7 +93,8 @@ func (config *Config) GetAlertingProviderByAlertType(alertType alert.Type) provi
 	entityType := reflect.TypeOf(config).Elem()
 	for i := 0; i < entityType.NumField(); i++ {
 		field := entityType.Field(i)
-		if strings.ToLower(field.Name) == string(alertType) {
+		tag := strings.Split(field.Tag.Get("yaml"), ",")[0]
+		if tag == string(alertType) {
 			fieldValue := reflect.ValueOf(config).Elem().Field(i)
 			if fieldValue.IsNil() {
 				return nil

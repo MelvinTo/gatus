@@ -5,6 +5,9 @@ package alert
 type Type string
 
 const (
+	// TypeAWSSES is the Type for the awsses alerting provider
+	TypeAWSSES Type = "aws-ses"
+
 	// TypeCustom is the Type for the custom alerting provider
 	TypeCustom Type = "custom"
 
@@ -17,8 +20,14 @@ const (
 	// TypeGitHub is the Type for the github alerting provider
 	TypeGitHub Type = "github"
 
+	// TypeGitLab is the Type for the gitlab alerting provider
+	TypeGitLab Type = "gitlab"
+
 	// TypeGoogleChat is the Type for the googlechat alerting provider
 	TypeGoogleChat Type = "googlechat"
+
+	// TypeGotify is the Type for the gotify alerting provider
+	TypeGotify Type = "gotify"
 
 	// TypeMatrix is the Type for the matrix alerting provider
 	TypeMatrix Type = "matrix"

@@ -191,6 +191,9 @@ func TestCanCreateTCPConnection(t *testing.T) {
 	if CanCreateTCPConnection("127.0.0.1", &Config{Timeout: 5 * time.Second}) {
 		t.Error("should've failed, because there's no port in the address")
 	}
+	if !CanCreateTCPConnection("1.1.1.1:53", &Config{Timeout: 5 * time.Second}) {
+		t.Error("should've succeeded, because that IP should always™ be up")
+	}
 }
 
 // This test checks if a HTTP client configured with `configureOAuth2()` automatically
@@ -248,5 +251,16 @@ func TestHttpClientProvidesOAuth2BearerToken(t *testing.T) {
 	// our expected token `secret-token`
 	if response.Header.Get("X-Org-Authorization") != "Bearer secret-token" {
 		t.Error("exptected `secret-token` as Bearer token in the mocked response header `X-Org-Authorization`, but got", response.Header.Get("X-Org-Authorization"))
+	}
+}
+
+func TestQueryWebSocket(t *testing.T) {
+	_, _, err := QueryWebSocket("", "body", &Config{Timeout: 2 * time.Second})
+	if err == nil {
+		t.Error("expected an error due to the address being invalid")
+	}
+	_, _, err = QueryWebSocket("ws://example.org", "body", &Config{Timeout: 2 * time.Second})
+	if err == nil {
+		t.Error("expected an error due to the target not being websocket-friendly")
 	}
 }
