@@ -4,9 +4,11 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"time"
@@ -57,6 +59,9 @@ type Config struct {
 	// If non-nil, the http.Client returned by getHTTPClient will automatically retrieve a token if necessary.
 	// See configureOAuth2 for more details.
 	OAuth2Config *OAuth2Config `yaml:"oauth2,omitempty"`
+
+	// Proxy to use
+	Proxy string `yaml:"proxy,omitempty"`
 
 	httpClient *http.Client
 }
@@ -138,12 +143,24 @@ func (c *OAuth2Config) isValid() bool {
 // GetHTTPClient return an HTTP client matching the Config's parameters.
 func (c *Config) getHTTPClient() *http.Client {
 	if c.httpClient == nil {
+		var proxy func(req *http.Request) (*url.URL, error)
+		if c.Proxy == "" {
+			proxy = http.ProxyFromEnvironment
+		} else {
+			u, err := url.Parse(c.Proxy)
+			if err != nil {
+				fmt.Println("error in proxy url. using default proxy", c.Proxy)
+				proxy = http.ProxyFromEnvironment
+			} else {
+				proxy = http.ProxyURL(u)
+			}
+		}
 		c.httpClient = &http.Client{
 			Timeout: c.Timeout,
 			Transport: &http.Transport{
 				MaxIdleConns:        100,
 				MaxIdleConnsPerHost: 20,
-				Proxy:               http.ProxyFromEnvironment,
+				Proxy:               proxy,
 				TLSClientConfig: &tls.Config{
 					InsecureSkipVerify: c.Insecure,
 				},
