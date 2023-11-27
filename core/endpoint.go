@@ -415,6 +415,14 @@ func (endpoint *Endpoint) call(result *Result) {
 			if err != nil {
 				result.AddError("error reading response body:" + err.Error())
 			}
+			bodyStr := string(result.Body)
+			var sampleLength int
+			if len(bodyStr) > 200 {
+				sampleLength = 200
+			} else {
+				sampleLength = len(bodyStr)
+			}
+			result.BodySample = bodyStr[0:sampleLength]
 		}
 	}
 }

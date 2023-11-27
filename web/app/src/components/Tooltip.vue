@@ -19,6 +19,8 @@
           </slot>
         </code>
       </div>
+      <div class="tooltip-title">Body:</div>
+      <code id="tooltip-body">{{ result.bodySample }}</code>
     </slot>
   </div>
 </template>
